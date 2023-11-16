@@ -1,0 +1,89 @@
+{
+	"name": "Code4Me.ai",
+	"displayName": "Code4Me.ai",
+	"description": "Code4Me.ai is a VS Code extension that uses OpenAI's gpt models to generate code from natural language.",
+	"version": "0.0.1",
+	"publisher": "Team Afri-Can",
+	"icon": "icon-small.jpg",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/Paulooh007/code4me.ai/blob/main/LICENSE"
+	},
+	"engines": {
+		"vscode": "^1.65.0"
+	},
+	"categories": [
+		"Machine Learning"
+	],
+	"activationEvents": [
+		"onView:codegen.editing",
+		"onCommand:codegen.tests",
+		"onCommand:codegen.docs",
+		"onCommand:codegen.humanailoop.accept",
+		"onCommand:codegen.humanailoop.cancel"
+	],
+	"main": "./out/extension.js",
+	"contributes": {
+		"views": {
+			"explorer": [
+				{
+					"type": "webview",
+					"id": "codegen.editing",
+					"name": "Code4Me.ai"
+				}
+			]
+		},
+		"commands": [
+			{
+				"command": "codegen.tests",
+				"title": "Generate unit tests"
+			},
+			{
+				"command": "codegen.docs",
+				"title": "Generate documentation"
+			},
+			{
+				"command": "codegen.install",
+				"title": "Install external packages"
+			}
+		],
+		"menus": {
+			"editor/context": [
+				{
+					"command": "codegen.tests"
+				},
+				{
+					"command": "codegen.docs"
+				},
+				{
+					"command": "codegen.install"
+				}
+			]
+		}
+	},
+	"scripts": {
+		"vscode:prepublish": "npm run compile",
+		"compile": "tsc -p ./",
+		"watch": "tsc -watch -p ./",
+		"pretest": "npm run compile && npm run lint",
+		"lint": "eslint src --ext ts",
+		"test": "node ./out/test/runTest.js"
+	},
+	"devDependencies": {
+		"@types/vscode": "^1.65.0",
+		"@types/glob": "^7.2.0",
+		"@types/mocha": "^9.1.0",
+		"@types/node": "14.x",
+		"@typescript-eslint/eslint-plugin": "^5.12.1",
+		"@typescript-eslint/parser": "^5.12.1",
+		"eslint": "^8.9.0",
+		"glob": "^7.2.0",
+		"mocha": "^9.2.1",
+		"typescript": "^4.5.5",
+		"@vscode/test-electron": "^2.1.2"
+	},
+	"dependencies": {
+		"axios": "^0.26.1",
+		"openai": "^2.0.5"
+	}
+}
