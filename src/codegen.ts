@@ -3,6 +3,7 @@ import * as generator from './generator';
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import { getState } from './state';
+import * as path from 'path';
 
 const doneText = '[x]';
 const generatedFolder = '/.ai/';
@@ -22,11 +23,15 @@ async function markCommandAsDone(command: any, filePath: string) {
 
 async function saveResult(currentFolder: string, result: string, outputFileName: string): Promise<string> {
     return new Promise((resolve, reject) => {
-        if (!fs.existsSync(currentFolder + generatedFolder)) {
-            fs.mkdirSync(currentFolder + generatedFolder, { recursive: true });
+        const generatedFolderPath = path.join(currentFolder, generatedFolder);
+
+        if (!fs.existsSync(generatedFolderPath)) {
+            fs.mkdirSync(generatedFolderPath, { recursive: true });
         }
-        let files = fs.readdirSync(currentFolder + generatedFolder);
+
+        let files = fs.readdirSync(generatedFolderPath);
         let index = 0;
+
         for (let i = 0; i < files.length; i++) {
             if (files[i].endsWith('.codegen')) {
                 let fileName = files[i].split('.')[0];
@@ -37,7 +42,7 @@ async function saveResult(currentFolder: string, result: string, outputFileName:
             }
         }
 
-        let filePath = currentFolder + generatedFolder + outputFileName;
+        let filePath = path.join(generatedFolderPath, path.basename(outputFileName));
 
         fs.writeFile(filePath, result, (err) => {
             if (err) {
@@ -86,7 +91,6 @@ async function generateNextCode(state: any) {
     try {
         console.log("processing.cmd: ", processing.command);
         code = await generator.generateCode(processing.command, processing.files[processing.index]);
-        // console.log("processing.cmd: ", processing.command);`
         console.log("CODE: ", code);
     } catch(e) {
         vscode.window.showErrorMessage('Error generating code. ' + e);
@@ -96,69 +100,86 @@ async function generateNextCode(state: any) {
     } finally {
         state.endGenerating();
     }
+
     if (hasError) {
         return false;
     }
 
-    // Check if file exists in current folder if exists show diff else show code
+    // Check if file exists in the current folder. If it exists, show diff; else, show code
     let currentFolder = processing.currentFolder;
     let filePath = processing.files[processing.index];
-    if (!filePath.startsWith('/')) {
-        filePath = currentFolder + '/' + filePath;
-    }
-    let fileName = filePath.split('/').pop();
+
+    // Convert to platform-specific path
+    filePath = path.join(currentFolder, filePath);
+
+    let fileName = path.basename(filePath);
 
     let generatedFilePath = null;
     if (fs.existsSync(filePath)) {
         generatedFilePath = await saveResult(currentFolder, code, fileName);
         await vscode.commands.executeCommand('vscode.diff', vscode.Uri.file(filePath), vscode.Uri.file(generatedFilePath));
     } else {
-        generatedFilePath = await saveToFileAndShowResult(processing.currentFolder, code, fileName);
+        generatedFilePath = await saveToFileAndShowResult(currentFolder, code, fileName);
+        // Assuming saveResult is similar to 
     }
+
     processing.codeFilePath = generatedFilePath;
     state.set('processing', processing);
     state.nextItem();
     return true;
 }
 
+
 export async function cancel(state: any) {
     let processing = state.get('processing');
     if (processing && processing.codeFilePath) {
         // Move to generated subfolder (same level as original)
         let filePath = processing.codeFilePath;
-        let fileName = filePath.split('/').pop();
-        let folder = filePath.split('/').slice(0, -1).join('/');
-        let generatedFolder = folder + '/generated/';
+        let fileName = path.basename(filePath);
+        let folder = path.dirname(filePath);
+        let generatedFolder = path.join(folder, 'generated');
+
         if (!fs.existsSync(generatedFolder)) {
             fs.mkdirSync(generatedFolder, { recursive: true });
         }
-        let newFilePath =  generatedFolder+ fileName;
+
+        let newFilePath = path.join(generatedFolder, fileName);
         fs.renameSync(filePath, newFilePath);
     }
+
     vscode.commands.executeCommand('workbench.action.closeActiveEditor');
     state.stopLooping();
 }
 
+
+
+
 function applyChanges(processingState: any) {
     // If file exists, replace it with the generated code else create a new file and paste the code
     let currentFolder = processingState.currentFolder;
+    //console.log("####### here")
     let file = processingState.files[processingState.index - 1];
     let filePath = file;
-    if (!filePath.startsWith('/')) {
-        filePath = currentFolder + '/' + filePath;
-    }
+    console.log(filePath)
+    
+    // Convert to platform-specific path
+    //This is a problem in windows//filePath = path.join(currentFolder, filePath);
+
+   // console.log("####### After joining")
+    console.log(filePath)
+
     let code = fs.readFileSync(processingState.codeFilePath, 'utf8');
+    
     // Move processingState.codeFilePath to subfolder generated on the same level as the file
-    let codeFileFolder = processingState.codeFilePath.split('/');
-    codeFileFolder.pop();
-    codeFileFolder.push('generated');
-    codeFileFolder = codeFileFolder.join('/');
+    let codeFileFolder = path.join(...processingState.codeFilePath.split('/').slice(0, -1), 'generated');
 
     if (!fs.existsSync(codeFileFolder)) {
         fs.mkdirSync(codeFileFolder, { recursive: true });
     }
-    let codeFileName = processingState.codeFilePath.split('/').pop();
-    let codeFilePath = codeFileFolder + '/' + codeFileName;
+
+    let codeFileName = path.basename(processingState.codeFilePath);
+    let codeFilePath = path.join(codeFileFolder, codeFileName);
+
     fs.renameSync(processingState.codeFilePath, codeFilePath);
 
     if (fs.existsSync(filePath)) {
@@ -166,16 +187,17 @@ function applyChanges(processingState: any) {
         fs.writeFileSync(filePath, code);
     } else {
         // Create file folder recursively if not exists
-        let fileFolder = filePath.split('/');
-        fileFolder.pop();
-        let folderPath = fileFolder.join('/');
+        let folderPath = path.dirname(filePath);
         if (!fs.existsSync(folderPath)) {
+
+
             fs.mkdirSync(folderPath, { recursive: true });
         }
         // Create a new file and paste the code
         fs.writeFileSync(filePath, code);
     }
 }
+
 
 export async function accept(state: any) {
     let processing = state.get('processing');
@@ -200,16 +222,22 @@ export async function accept(state: any) {
     return status;
 }
 
+
+
+
 async function startHumanAILoop(command: any, currentFolder: string, state: any) {
     command.folder = currentFolder;
+
     if (command.type === 'test') {
-        let fileName = command.file.split('/').pop();
-        let testsFolder = currentFolder + '/tests/';
-        let unitTestFile = testsFolder + fileName;
+        let fileName = path.basename(command.file);
+        let testsFolder = path.join(currentFolder, 'tests');
+        let unitTestFile = path.join(testsFolder, fileName);
+
         if (!fs.existsSync(testsFolder)) {
             fs.mkdirSync(testsFolder, { recursive: true });
         }
-        // Create empty file (if not exists)
+
+        // Create an empty file (if not exists)
         if (!fs.existsSync(unitTestFile)) {
             fs.writeFileSync(unitTestFile, '');
         }
@@ -223,6 +251,7 @@ async function startHumanAILoop(command: any, currentFolder: string, state: any)
             ],
             'index': 0
         });
+
         state.bar.loading.show();
         await accept(state);
         return;
@@ -236,12 +265,15 @@ async function startHumanAILoop(command: any, currentFolder: string, state: any)
             ],
             'index': 0
         });
+
         state.bar.loading.show();
         await accept(state);
         return;
     } else {
         let result = await generator.generateFilesToModify(command);
-        await saveToFileAndShowResult(currentFolder, result.code, 'files.md');
+        let filesMdPath = path.join(currentFolder, 'files.md');
+        await saveToFileAndShowResult(currentFolder, result.code, filesMdPath);
+
         state.set('processing', {
             'state': 'files',
             'command': command,
@@ -250,6 +282,9 @@ async function startHumanAILoop(command: any, currentFolder: string, state: any)
             'index': 0
         });
     }
+
+
+
 
     state.startLooping();
     state.bar.loading.show();
@@ -261,7 +296,7 @@ export async function generate(context: vscode.ExtensionContext, state: any, cur
         return;
     }
 
-    let currentFolder = currentFile.substring(0, currentFile.lastIndexOf('/'));
+    let currentFolder = currentFile.substring(0, currentFile.lastIndexOf('\\'));
     let inputText = fs.readFileSync(currentFile, 'utf8');
     let commands = await parser.parse(inputText);
     let pendingCommands = await getPendingCommands(commands);
