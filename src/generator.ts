@@ -2,9 +2,9 @@
 import * as prompts from './prompts';
 import { Configuration, CreateCompletionResponse, OpenAIApi } from 'openai';
 import * as fs from 'fs';
-import { getState } from './state';
 import axios from 'axios';
 import * as path from 'path';
+import { sessionApiKey } from './codegen';
 
 const ALWAYS_INCLUDE_FILENAME = true;
 
@@ -18,8 +18,13 @@ let mapExtensionStartInstall: any = {
 };
 
 function getOpenAI() {
+
+    if (!sessionApiKey) {
+        throw new Error("API Key is not set.");
+    }
+
     const configuration = new Configuration({
-        apiKey: getState().get('apiKey'),
+        apiKey: sessionApiKey
     });
 
     const openai = new OpenAIApi(configuration);
@@ -38,7 +43,7 @@ function generateUnitTestPrompt(code: string): string {
 
 export async function callOpenAI(code: string, model: string = "gpt-3.5-turbo-instruct", maxTokens: number = 500, temperature: number = 0): Promise<string> {
     // Retrieve the apiKey from your state management
-    const OPENAI_API_KEY = getState().get('apiKey');
+    const OPENAI_API_KEY = sessionApiKey;
     let prompt = generateUnitTestPrompt(code);
     console.log(prompt)
     // Rest of your function remains the same
@@ -315,9 +320,8 @@ export async function generateCode(command: any, file: string) {
 }
 
 export async function getOpenAIResponse(prompt: string, context: any, model: string = "gpt-3.5-turbo-instruct", maxTokens: number = 500, temperature: number = 0): Promise<string> {
-    // Retrieve the apiKey from your state management
-    const OPENAI_API_KEY = context.globalState.get("openaiApiKey");
-    // Rest of your function remains the same
+
+    const OPENAI_API_KEY = sessionApiKey;
     const response = await axios.post('https://api.openai.com/v1/completions', {
         model: model,
         prompt: prompt,

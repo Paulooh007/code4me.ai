@@ -2,16 +2,14 @@ import * as parser from './parser';
 import * as generator from './generator';
 import * as vscode from 'vscode';
 import * as fs from 'fs';
-import { getState } from './state';
 import * as path from 'path';
 
 
 
+export let sessionApiKey: string | null = null;
 
 const doneText = '[x]';
 const generatedFolder = '.ai';
-const apiKeyName = 'openaiApiKey';
-
 
 async function getPendingCommands(commands: string[]): Promise<string[]> {
     return commands.filter(command => {
@@ -73,21 +71,26 @@ async function saveToFileAndShowResult(currentFolder: string, result: string, ou
     });
 }
 
-async function checkAPIKey(context: vscode.ExtensionContext): Promise<boolean> {
-    let apiKey = context.globalState.get(apiKeyName);
-    if (!apiKey) {
-        let apiKey = await vscode.window.showInputBox({
-            prompt: 'Please enter your OpenAI API Key. You need to have access to Codex models.',
-            placeHolder: 'API Key'
-        });
-        if (!apiKey) {
-            vscode.window.showErrorMessage('No OpenAI API Key provided. Please enter your API Key');
-            return false;
-        }
-        context.globalState.update(apiKeyName, apiKey);
+async function checkAPIKey(): Promise<boolean> {
+    // If the API key already exists in the session, return true
+    if (sessionApiKey) {
+        return true;
     }
-    apiKey = context.globalState.get(apiKeyName);
-    getState().set('apiKey', apiKey);
+
+    // Prompt the user to enter the API key
+    const inputApiKey = await vscode.window.showInputBox({
+        prompt: 'Please enter your OpenAI API Key. You need to have access to Codex models.',
+        placeHolder: 'API Key'
+    });
+
+    // Check if the user provided an API key
+    if (!inputApiKey) {
+        vscode.window.showErrorMessage('No OpenAI API Key provided. Please enter your API Key');
+        return false;
+    }
+
+    // Store the API key in the session variable
+    sessionApiKey = inputApiKey;
     return true;
 }
 
@@ -133,7 +136,6 @@ async function generateNextCode(state: any) {
     state.nextItem();
     return true;
 }
-
 
 export async function cancel(state: any) {
     let processing = state.get('processing');
@@ -267,7 +269,7 @@ async function startHumanAILoop(command: any, currentFolder: string, state: any)
 }
 
 export async function generate(context: vscode.ExtensionContext, state: any, currentFile: string) {
-    if (!await checkAPIKey(context)) {
+    if (!await checkAPIKey()) {
         return;
     }
 
@@ -288,7 +290,7 @@ export async function generate(context: vscode.ExtensionContext, state: any, cur
 }
 
 export async function generateTests(context: vscode.ExtensionContext, state: any, currentFile: string, currentFolder: string) {
-    if (!await checkAPIKey(context)) {
+    if (!await checkAPIKey()) {
         return;
     }
 
@@ -300,7 +302,7 @@ export async function generateTests(context: vscode.ExtensionContext, state: any
 }
 
 export async function edit(context: vscode.ExtensionContext, state: any, commandText: string, fileToEdit: string, currentFolder: string) {
-    if (!await checkAPIKey(context)) {
+    if (!await checkAPIKey()) {
         return;
     }
 
