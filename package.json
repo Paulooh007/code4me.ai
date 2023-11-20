@@ -1,13 +1,13 @@
 {
-	"name": "Code4Me.ai",
+	"name": "code4me",
 	"displayName": "Code4Me.ai",
-	"description": "Code4Me.ai is a VS Code extension that uses OpenAI's gpt models to generate code from natural language.",
-	"version": "0.0.1",
+	"description": "codeformeai is a VS Code extension that uses OpenAI's gpt models to generate code from natural language.",
+	"version": "0.0.2",
 	"publisher": "Team Afri-Can",
 	"icon": "icon-small.jpg",
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/Paulooh007/code4me.ai/blob/main/LICENSE"
+		"url": "https://github.com/Paulooh007/code4me.ai"
 	},
 	"engines": {
 		"vscode": "^1.65.0"
@@ -29,7 +29,7 @@
 				{
 					"type": "webview",
 					"id": "codegen.editing",
-					"name": "Code4Me.ai"
+					"name": "codeformeai"
 				}
 			]
 		},

@@ -4,9 +4,9 @@ import { Configuration, CreateCompletionResponse, OpenAIApi } from 'openai';
 import * as fs from 'fs';
 import { getState } from './state';
 import axios from 'axios';
+import * as path from 'path';
 
 const ALWAYS_INCLUDE_FILENAME = true;
-
 
 let mapExtensionStartInstall: any = {
     'js': 'npm install',
@@ -25,7 +25,6 @@ function getOpenAI() {
     const openai = new OpenAIApi(configuration);
     return openai;
 }
-
 
 function generateUnitTestPrompt(code: string): string {
     return `Generate code for a maximum of 5 unit tests for the following code, \
@@ -111,7 +110,10 @@ async function generateUntilDone(engine: string, prompt: string, input: any): Pr
 }
 
 async function generate(input: any): Promise<string> {
+    console.log("input.file", input.file)
+    console.log("input.variables", input.variables)
     let prompt = await prompts.build(input.file, input.variables);
+    console.log("prompt", prompt)
     let result = await generateUntilDone(input.engine, prompt, input);
     return result;
 }
@@ -133,25 +135,21 @@ function getIntroText(command: any) {
 }
 
 async function getExistingFileCode(file: string, folder: string) {
-    if (file.startsWith('/')) {
-        return fs.readFileSync(file, 'utf8');
-    }
-    // Check if file exists
-    let filePath = folder + '/' + file;
+    let filePath = path.isAbsolute(file) ? file : path.join(folder, file);
+
     if (!fs.existsSync(filePath)) {
         return '';
     }
-    return fs.readFileSync(folder + '/' + file, 'utf8');
+    return fs.readFileSync(filePath, 'utf8');
 }
 
-const getFilesRecursively = (path: string) => {
+const getFilesRecursively = (directoryPath: string) => {
     const files = [];
-    for (const file of fs.readdirSync(path)) {
-        const fullPath = path + '/' + file;
-        if(fs.lstatSync(fullPath).isDirectory()) {
-            getFilesRecursively(fullPath).forEach(x => files.push(file + '/' + x));
-        }
-        else {
+    for (const file of fs.readdirSync(directoryPath)) {
+        const fullPath = path.join(directoryPath, file);
+        if (fs.lstatSync(fullPath).isDirectory()) {
+            getFilesRecursively(fullPath).forEach(x => files.push(path.join(file, x)));
+        } else {
             files.push(file);
         }
     }
@@ -286,13 +284,19 @@ function mapFileToStart(filename: string, mapExtension: any) {
 }
 
 export async function generateCode(command: any, file: string) {
+    console.log("generateCode", command.command, file)
     let input = await getVariablesAndPromptForCommand('code', command);
+    console.log("INPUT: ", input)
+    console.log("INPUT: ", command.type)
 
     input.variables.file = file;
 
     if (command.type === 'test') {
-        input.variables.start = "\n";
+        input.variables.start = "";
     }
+    if (command.type === 'docs') {
+        input.variables.start = "\n";
+    }   
     if (command.type === 'install') {
         let start = mapFileToStart(file, mapExtensionStartInstall);
         input.config = {
@@ -310,20 +314,13 @@ export async function generateCode(command: any, file: string) {
     return result;
 }
 
-function generateInstallCommandPrompt(code: string): string {
-    return `Return the correct one-line command to install the dependencies needed in the following code:
-    \`\`\`
-    ${code}
-    \`\`\``;
-}
-
-export async function getInstallCommand(prompt: string, context: any, model: string = "gpt-3.5-turbo-instruct", maxTokens: number = 500, temperature: number = 0): Promise<string> {
+export async function getOpenAIResponse(prompt: string, context: any, model: string = "gpt-3.5-turbo-instruct", maxTokens: number = 500, temperature: number = 0): Promise<string> {
     // Retrieve the apiKey from your state management
     const OPENAI_API_KEY = context.globalState.get("openaiApiKey");
     // Rest of your function remains the same
     const response = await axios.post('https://api.openai.com/v1/completions', {
         model: model,
-        prompt: generateInstallCommandPrompt(prompt),
+        prompt: prompt,
         max_tokens: maxTokens,
         temperature: temperature
     }, {
