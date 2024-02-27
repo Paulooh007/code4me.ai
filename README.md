@@ -7,6 +7,14 @@
 ## Code4Me.AI
 Imagine an AI-powered tool just within your IDE that turns your ideas into code through natural language—our VS Code extension does precisely that. The Code4Me.ai extension not only aids in code generation and auto-debugging but also excels in generating unit tests and crafting quality documentation, boosting productivity and development speed by 10x for both novices and expert developers alike. 
 
+## Demo Video
+<p align="center">
+  <a href="https://www.youtube.com/watch?v=Z4bP_QRJBGg">
+    <img src="https://img.youtube.com/vi/Z4bP_QRJBGg/0.jpg" alt="Code4Me.ai Demo" width="50%">
+  </a>
+</p>
+
+
 ## Feature Summary
 <p align="center">
 
